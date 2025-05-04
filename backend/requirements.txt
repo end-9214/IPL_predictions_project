@@ -1,0 +1,10 @@
+django
+djangorestframework
+crawl4ai
+scikit-learn
+matplotlib
+numpy
+pandas
+joblib
+python-dotenv
+groq
