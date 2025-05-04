@@ -11,7 +11,7 @@ from llm.groq_llm import analyze_predictions
 
 
 class UploadMatchesAPIView(APIView):
-    def post(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         file_path = "scraper/ipl_matches.csv"
         with open(file_path, "r") as file:
             reader = csv.DictReader(file)
@@ -45,9 +45,13 @@ class UploadMatchesAPIView(APIView):
                 serializer = WinratesSerializer(data=winrate_data)
                 if serializer.is_valid():
                     serializer.save()
+        matches = Match.objects.all()
+        winrates = TeamWinrates.objects.all()
+        matches_serializer = MatchSerializer(matches, many=True)
+        winrates_serializer = WinratesSerializer(winrates, many=True)
 
         return Response(
-            {"message": "Matches and win rates uploaded successfully!"},
+            {"message": "Matches and win rates uploaded successfully!", "matches": matches_serializer.data, "winrates": winrates_serializer.data},
             status=status.HTTP_200_OK,
         )
 
@@ -60,6 +64,99 @@ class CurrentPredictionsAPIView(APIView):
         if not matches.exists():
             return Response(
                 {"message": "No matches scheduled for today."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        final_predictions = []
+
+        for match in matches:
+            team1 = match.team1
+            team2 = match.team2
+            venue = match.venue
+            city = venue.split(",")[-1].strip()
+
+            team1_win_rate = (
+                TeamWinrates.objects.get(team=team1).home_win_percentage / 100
+            )
+            team2_win_rate = (
+                TeamWinrates.objects.get(team=team2).away_win_percentage / 100
+            )
+
+            toss_outcomes = []
+
+            scenarios = [
+                {"toss_winner": team1, "toss_decision": "bat"},
+                {"toss_winner": team1, "toss_decision": "field"},
+                {"toss_winner": team2, "toss_decision": "bat"},
+                {"toss_winner": team2, "toss_decision": "field"},
+            ]
+
+            for scenario in scenarios:
+                result = predict_ipl_match(
+                    team1=team1,
+                    team2=team2,
+                    venue=venue,
+                    toss_winner=scenario["toss_winner"],
+                    toss_decision=scenario["toss_decision"],
+                    team1_win_rate=team1_win_rate,
+                    team2_win_rate=team2_win_rate,
+                )
+
+                toss_outcomes.append(
+                    {
+                        "toss_winner": result["toss_winner"],
+                        "toss_decision": result["toss_decision"],
+                        "predicted_winner": result["predicted_winner"],
+                        "winning_probability": result["winning_probability"],
+                    }
+                )
+
+            match_prediction = {
+                "team1": team1,
+                "team2": team2,
+                "venue": venue,
+                "city": city,
+                "team1_win_rate": team1_win_rate,
+                "team2_win_rate": team2_win_rate,
+                "team1_is_home": result.get("team1_is_home", 0),
+                "team2_is_home": result.get("team2_is_home", 0),
+                "team1_venue_win_pct": result.get("team1_venue_win_pct"),
+                "team2_venue_win_pct": result.get("team2_venue_win_pct"),
+                "toss_outcomes": toss_outcomes,
+            }
+
+            final_predictions.append(match_prediction)
+
+        insights = analyze_predictions(final_predictions)
+
+        return Response(
+            {"predictions": final_predictions, "insights": insights},
+            status=status.HTTP_200_OK,
+        )
+
+
+class ManualDatePredictionsAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        selected_date = request.query_params.get("date")
+        if not selected_date:
+            return Response(
+                {"error": "Please provide a date in the format YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            selected_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        matches = Match.objects.filter(date=selected_date)
+
+        if not matches.exists():
+            return Response(
+                {"message": f"No matches scheduled for {selected_date}."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
