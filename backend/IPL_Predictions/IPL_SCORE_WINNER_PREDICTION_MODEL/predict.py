@@ -6,17 +6,23 @@ import numpy as np
 def predict_ipl_match(
     team1, team2, venue, toss_winner, toss_decision, team1_win_rate, team2_win_rate
 ):
-    model = joblib.load("IPL_SCORE_WINNER_PREDICTION_MODEL/saved_models/winner_model.pkl")
-    encoders = joblib.load("IPL_SCORE_WINNER_PREDICTION_MODEL/saved_models/encoders.pkl")
+    model = joblib.load(
+        "IPL_SCORE_WINNER_PREDICTION_MODEL/saved_models/winner_model.pkl"
+    )
+    encoders = joblib.load(
+        "IPL_SCORE_WINNER_PREDICTION_MODEL/saved_models/encoders.pkl"
+    )
 
-    team_stats = pd.read_csv("IPL_SCORE_WINNER_PREDICTION_MODEL/data/teamwise_home_and_away.csv")
+    team_stats = pd.read_csv(
+        "IPL_SCORE_WINNER_PREDICTION_MODEL/data/teamwise_home_and_away.csv"
+    )
 
     match_data = pd.DataFrame(
         {
             "team1": [team1],
             "team2": [team2],
             "venue": [venue],
-            "city": [venue.split(",")[0]],
+            "city": [venue.split(",")[1].strip() if "," in venue else venue],
             "toss_winner": [toss_winner],
             "toss_decision": [toss_decision],
         }
@@ -82,4 +88,21 @@ def predict_ipl_match(
         winning_team = team2
         probability = 1 - win_probability
 
-    return winning_team, probability
+    result = {
+        "team1": team1,
+        "team2": team2,
+        "venue": venue,
+        "city": city,
+        "toss_winner": toss_winner,
+        "toss_decision": toss_decision,
+        "team1_win_rate": match_data["team1_win_rate"].iloc[0],
+        "team2_win_rate": match_data["team2_win_rate"].iloc[0],
+        "team1_is_home": match_data["team1_is_home"].iloc[0],
+        "team2_is_home": match_data["team2_is_home"].iloc[0],
+        "team1_venue_win_pct": match_data["team1_venue_win_pct"].iloc[0],
+        "team2_venue_win_pct": match_data["team2_venue_win_pct"].iloc[0],
+        "predicted_winner": winning_team,
+        "winning_probability": round(probability * 100, 2),
+    }
+
+    return result

@@ -7,7 +7,7 @@ from .models import Match, TeamWinrates, Predictions
 from .serializers import MatchSerializer, WinratesSerializer
 from IPL_SCORE_WINNER_PREDICTION_MODEL.predict import predict_ipl_match
 from datetime import date, datetime
-
+from llm.groq_llm import analyze_predictions
 
 
 class UploadMatchesAPIView(APIView):
@@ -17,7 +17,9 @@ class UploadMatchesAPIView(APIView):
             reader = csv.DictReader(file)
             for row in reader:
                 match_data = {
-                    "date": datetime.strptime(row["date"], "%d-%m-%Y").strftime("%Y-%m-%d"),
+                    "date": datetime.strptime(row["date"], "%d-%m-%Y").strftime(
+                        "%Y-%m-%d"
+                    ),
                     "team1": row["team1"],
                     "team2": row["team2"],
                     "venue": row["venue"],
@@ -61,15 +63,23 @@ class CurrentPredictionsAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        predictions = []
+        final_predictions = []
 
         for match in matches:
             team1 = match.team1
             team2 = match.team2
             venue = match.venue
+            city = venue.split(",")[-1].strip()
 
-            team1_win_rate = TeamWinrates.objects.get(team=team1).home_win_percentage / 100
-            team2_win_rate = TeamWinrates.objects.get(team=team2).away_win_percentage / 100
+            team1_win_rate = (
+                TeamWinrates.objects.get(team=team1).home_win_percentage / 100
+            )
+            team2_win_rate = (
+                TeamWinrates.objects.get(team=team2).away_win_percentage / 100
+            )
+
+            toss_outcomes = []
+
             scenarios = [
                 {"toss_winner": team1, "toss_decision": "bat"},
                 {"toss_winner": team1, "toss_decision": "field"},
@@ -78,29 +88,44 @@ class CurrentPredictionsAPIView(APIView):
             ]
 
             for scenario in scenarios:
-                toss_winner = scenario["toss_winner"]
-                toss_decision = scenario["toss_decision"]
-
-                winning_team, probability = predict_ipl_match(
+                result = predict_ipl_match(
                     team1=team1,
                     team2=team2,
                     venue=venue,
-                    toss_winner=toss_winner,
-                    toss_decision=toss_decision,
+                    toss_winner=scenario["toss_winner"],
+                    toss_decision=scenario["toss_decision"],
                     team1_win_rate=team1_win_rate,
                     team2_win_rate=team2_win_rate,
                 )
 
-                predictions.append(
+                toss_outcomes.append(
                     {
-                        "match": f"{team1} vs {team2}",
-                        "venue": venue,
-                        "toss_winner": toss_winner,
-                        "toss_decision": toss_decision,
-                        "predicted_winner": winning_team,
-                        "win_probability": round(probability * 100, 2),
+                        "toss_winner": result["toss_winner"],
+                        "toss_decision": result["toss_decision"],
+                        "predicted_winner": result["predicted_winner"],
+                        "winning_probability": result["winning_probability"],
                     }
                 )
 
-        return Response(predictions, status=status.HTTP_200_OK)
-    
+            match_prediction = {
+                "team1": team1,
+                "team2": team2,
+                "venue": venue,
+                "city": city,
+                "team1_win_rate": team1_win_rate,
+                "team2_win_rate": team2_win_rate,
+                "team1_is_home": result.get("team1_is_home", 0),
+                "team2_is_home": result.get("team2_is_home", 0),
+                "team1_venue_win_pct": result.get("team1_venue_win_pct"),
+                "team2_venue_win_pct": result.get("team2_venue_win_pct"),
+                "toss_outcomes": toss_outcomes,
+            }
+
+            final_predictions.append(match_prediction)
+
+        insights = analyze_predictions(final_predictions)
+
+        return Response(
+            {"predictions": final_predictions, "insights": insights},
+            status=status.HTTP_200_OK,
+        )
