@@ -4,14 +4,20 @@
 
 ### backend 
 * Django rest framework is used in backend.
-* to run the backend api - create virtual python environment
+* to run the backend api -
 ```
 cd backend
-pip install -r requirements.txt
-
-cd IPL_Predictions
-python manage.py makemigrations
-python manage.py migrate
-python manage.py runserver
+docker-compose up --build
 ```
 
+### Info about backend
+* backend contains IPL current match prediction ML model `IPL_SCORE_WINNER_PREDICTION_MODEL`.
+* To see current date's matches predictions - go to -> `http://127.0.0.1:8000/api/current-predictions/`.
+
+I have also create an `http://127.0.0.1:8000/api/upload-matches/` endpoint to upload the scrapped `latest matches lineup` and the current teams `home and away` winrates to the database which will be used for predictions.
+
+* IPL Match winner prediction model is trained on `ipl_2024_matches.csv` data which contains all the IPL matches details of year 2024
+* The `ipl_2024_deliveries.csv` file contains every matches ball by ball data which is also used to extract necessary features for training our model.
+
+
+## Still working on the frontend...
