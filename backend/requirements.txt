@@ -8,3 +8,4 @@ pandas
 joblib
 python-dotenv
 groq
+django-cors-headers
