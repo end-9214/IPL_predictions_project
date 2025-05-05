@@ -12,18 +12,6 @@ def load_data(matches_path, deliveries_path, team_stats_path=None):
     return matches, deliveries, team_stats
 
 
-def determine_home_team(row, team_name):
-    if row["city"] in team_name or row["venue"] in team_name:
-        return 1
-    return 0
-
-
-def get_venue_win_pct(row, home_pct, away_pct, is_home):
-    if is_home == 1:
-        return home_pct
-    return away_pct
-
-
 def preprocess_data(matches, deliveries, team_stats=None):
     valid_matches = matches.dropna(subset=["winning_team"]).copy()
 
@@ -55,15 +43,9 @@ def preprocess_data(matches, deliveries, team_stats=None):
         home_win_pct = dict(zip(team_stats["team"], team_stats["home_win_percentage"]))
         away_win_pct = dict(zip(team_stats["team"], team_stats["away_win_percentage"]))
 
-        team1_is_home = []
-        team2_is_home = []
+        valid_matches.loc[:, "team1_is_home"] = 1
+        valid_matches.loc[:, "team2_is_home"] = 0
 
-        for _, row in valid_matches.iterrows():
-            team1_is_home.append(determine_home_team(row, row["team1"]))
-            team2_is_home.append(determine_home_team(row, row["team2"]))
-
-        valid_matches.loc[:, "team1_is_home"] = team1_is_home
-        valid_matches.loc[:, "team2_is_home"] = team2_is_home
         valid_matches.loc[:, "team1_home_win_pct"] = valid_matches["team1"].map(
             home_win_pct
         )
@@ -77,26 +59,12 @@ def preprocess_data(matches, deliveries, team_stats=None):
             away_win_pct
         )
 
-        team1_venue_win_pct = []
-        team2_venue_win_pct = []
-
-        for _, row in valid_matches.iterrows():
-            t1_home_pct = row["team1_home_win_pct"]
-            t1_away_pct = row["team1_away_win_pct"]
-            t1_is_home = row["team1_is_home"]
-            team1_venue_win_pct.append(
-                get_venue_win_pct(row, t1_home_pct, t1_away_pct, t1_is_home)
-            )
-
-            t2_home_pct = row["team2_home_win_pct"]
-            t2_away_pct = row["team2_away_win_pct"]
-            t2_is_home = row["team2_is_home"]
-            team2_venue_win_pct.append(
-                get_venue_win_pct(row, t2_home_pct, t2_away_pct, t2_is_home)
-            )
-
-        valid_matches.loc[:, "team1_venue_win_pct"] = team1_venue_win_pct
-        valid_matches.loc[:, "team2_venue_win_pct"] = team2_venue_win_pct
+        valid_matches.loc[:, "team1_venue_win_pct"] = valid_matches[
+            "team1_home_win_pct"
+        ]
+        valid_matches.loc[:, "team2_venue_win_pct"] = valid_matches[
+            "team2_away_win_pct"
+        ]
 
     return valid_matches
 

@@ -39,10 +39,9 @@ def predict_ipl_match(
     away_win_pct = dict(zip(team_stats["team"], team_stats["away_win_percentage"]))
 
     city = match_data.loc[0, "city"]
-    venue_name = match_data.loc[0, "venue"]
 
-    match_data["team1_is_home"] = 1 if (city in team1 or venue_name in team1) else 0
-    match_data["team2_is_home"] = 1 if (city in team2 or venue_name in team2) else 0
+    match_data["team1_is_home"] = 1 
+    match_data["team2_is_home"] = 0
 
     match_data["team1_home_win_pct"] = home_win_pct.get(team1, 0.5)
     match_data["team1_away_win_pct"] = away_win_pct.get(team1, 0.5)

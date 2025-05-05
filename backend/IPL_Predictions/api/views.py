@@ -7,7 +7,30 @@ from .models import Match, TeamWinrates, Predictions
 from .serializers import MatchSerializer, WinratesSerializer
 from IPL_SCORE_WINNER_PREDICTION_MODEL.predict import predict_ipl_match
 from datetime import date, datetime
-from llm.groq_llm import analyze_predictions
+from llm.groq_llm import analyze_predictions, analyze_model_training
+import subprocess
+
+
+class TrainModelOnDataAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+            process = subprocess.Popen(
+                ["python", "IPL_SCORE_WINNER_PREDICTION_MODEL/train_models.py"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            stdout, stderr = process.communicate()
+            if process.returncode != 0:
+                return Response(
+                    {"error": "Model training failed.", "details": stderr},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            insights = analyze_model_training(stdout)
+            return Response(
+                {"message": "Model training completed successfully!", "output": stdout, "insights": insights},
+                status=status.HTTP_200_OK,
+            )
+
 
 
 class UploadMatchesAPIView(APIView):
@@ -59,7 +82,7 @@ class UploadMatchesAPIView(APIView):
 class CurrentPredictionsAPIView(APIView):
     def get(self, request, *args, **kwargs):
         today = date.today()
-        matches = Match.objects.filter(date=today)
+        matches = Match.objects.filter(date=today).distinct()
 
         if not matches.exists():
             return Response(

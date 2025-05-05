@@ -2,9 +2,10 @@ import re
 import csv
 from datetime import datetime
 
-# Filepath of the markdown file
-input_file = r"c:\Users\DELL-7373\Desktop\internship\AI_engineer_intern_tasks\task1\scraper\ipl2024-stats\page.md"
+# Filepaths
+input_file = "ipl2024-stats/page.md"
 output_file = "ipl_matches.csv"
+matches_file = r"C:\Users\DELL-7373\Desktop\internship\AI_engineer_intern_tasks\task1\backend\IPL_Predictions\IPL_SCORE_WINNER_PREDICTION_MODEL\data\ipl_2024_matches.csv"
 
 # Dictionary to map full team names to their short forms
 team_short_names = {
@@ -19,6 +20,14 @@ team_short_names = {
     "Lucknow Super Giants": "LSG",
     "Gujarat Titans": "GT"
 }
+
+# Load venues from matches file
+matches_venues = {}
+with open(matches_file, "r", encoding="utf-8") as matches_csv:
+    matches_reader = csv.DictReader(matches_csv)
+    for row in matches_reader:
+        city = row["city"].strip()
+        matches_venues[city] = row["venue"]
 
 # Open the markdown file and read its content
 with open(input_file, "r", encoding="utf-8") as file:
@@ -59,6 +68,11 @@ with open(output_file, "w", newline="", encoding="utf-8") as csvfile:
                 team2 = team_short_names.get(team2, team2)
             else:
                 team1, team2, match_number = "N/A", "N/A", "N/A"
+
+            # Check and update venue based on city match
+            city = venue.split(",")[-1].strip()
+            if city in matches_venues:
+                venue = matches_venues[city]
 
             # Write the data to the CSV file
             csvwriter.writerow([match_number, match_date, team1, team2, venue])
