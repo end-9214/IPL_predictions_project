@@ -9,27 +9,37 @@ from IPL_SCORE_WINNER_PREDICTION_MODEL.predict import predict_ipl_match
 from datetime import date, datetime
 from llm.groq_llm import analyze_predictions, analyze_model_training
 import subprocess
+import json
 
 
 class TrainModelOnDataAPIView(APIView):
     def get(self, request, *args, **kwargs):
-            process = subprocess.Popen(
-                ["python", "IPL_SCORE_WINNER_PREDICTION_MODEL/train_models.py"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            stdout, stderr = process.communicate()
-            if process.returncode != 0:
-                return Response(
-                    {"error": "Model training failed.", "details": stderr},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-            insights = analyze_model_training(stdout)
+        process = subprocess.run(
+            ["python", "IPL_SCORE_WINNER_PREDICTION_MODEL/train_models.py"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        if process.returncode != 0:
             return Response(
-                {"message": "Model training completed successfully!", "output": stdout, "insights": insights},
-                status=status.HTTP_200_OK,
+                {"message": "Model training failed!", "error": process.stderr},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+        output_path = "IPL_SCORE_WINNER_PREDICTION_MODEL/saved_models/model_evaluation.json"
+        with open(output_path, "r") as f:
+            evaluation_output = json.load(f)
+
+        insights = analyze_model_training(evaluation_output)
+        return Response(
+            {
+                "message": "Model training completed successfully!",
+                "output": evaluation_output,
+                "insights": insights,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 
@@ -47,6 +57,14 @@ class UploadMatchesAPIView(APIView):
                     "team2": row["team2"],
                     "venue": row["venue"],
                 }
+                if Match.objects.filter(
+                    date=match_data["date"],
+                    team1=match_data["team1"],
+                    team2=match_data["team2"],
+                    venue=match_data["venue"],
+                ).exists():
+                    continue
+
                 serializer = MatchSerializer(data=match_data)
                 if serializer.is_valid():
                     serializer.save()
@@ -65,6 +83,11 @@ class UploadMatchesAPIView(APIView):
                     "home_win_percentage": float(row["home_win_percentage"]),
                     "away_win_percentage": float(row["away_win_percentage"]),
                 }
+                if TeamWinrates.objects.filter(
+                    team=winrate_data["team"]
+                ).exists():
+                    continue
+                
                 serializer = WinratesSerializer(data=winrate_data)
                 if serializer.is_valid():
                     serializer.save()
