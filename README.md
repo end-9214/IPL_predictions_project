@@ -2,11 +2,11 @@
 
 ## Project structure
 
-### backend 
-* Django rest framework is used in backend.
-* to run the backend api -
+### To run this project - 
+* Django rest framework is used in backend.And react is used for Frontend
+* to run the backend api and react frontend -
+> create a `.env` in backend folder and put `GROQ_API_KEY` inside.
 ```
-cd backend
 docker-compose up --build
 ```
 
@@ -27,4 +27,11 @@ docker-compose up --build
 * The `ipl_2024_deliveries.csv` file contains every matches ball by ball data which is also used to extract necessary features for training our model.
 
 
-## Still working on the frontend...
+## Frontend -
+> Frontend is made using React which is used to show all the outputs of the api endpoints and visualize them.
+
+* To access frontend - go to - `http://localhost:3000/` 
+
+
+
+
